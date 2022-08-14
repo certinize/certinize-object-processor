@@ -1,1 +1,1 @@
-# certinize-image-processor
+# certinize-ecert-processor
