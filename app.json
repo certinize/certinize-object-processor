@@ -5,7 +5,7 @@
     "ALLOWED_ORIGINS": {
       "description": "Origins (domain, scheme, or port) allowed to use the app as a backend. Allow all as default",
       "required": false,
-      "value": ["*"]
+      "value": "[\"*\"]"
     },
     "IMAGEKIT_ENDPOINT_URL": {
       "description": "The endpoint URL of your ImageKit media library.",
