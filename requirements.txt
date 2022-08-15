@@ -196,7 +196,7 @@ multidict==6.0.2; python_version >= "3.7" \
     --hash=sha256:23b616fdc3c74c9fe01d76ce0d1ce872d2d396d8fa8e4899398ad64fb5aa214a \
     --hash=sha256:4bae31803d708f6f15fd98be6a6ac0b6958fcf68fda3c77a048a4f9073704aae \
     --hash=sha256:5ff3bd75f38e4c43f1f470f2df7a4d430b821c4ce22be384e1459cb57d6bb013
-orjson==3.7.11; python_version >= "3.7"
+orjson==3.7.12; python_version >= "3.7"
 pillow==9.2.0; python_version >= "3.7" \
     --hash=sha256:a9c9bc489f8ab30906d7a85afac4b4944a572a7432e00698a7239f44a44e6efb \
     --hash=sha256:510cef4a3f401c246cfd8227b300828715dd055463cdca6176c2e4036df8bd4f \

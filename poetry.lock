@@ -286,7 +286,7 @@ python-versions = "*"
 
 [[package]]
 name = "orjson"
-version = "3.7.11"
+version = "3.7.12"
 description = "Fast, correct Python JSON library supporting dataclasses, datetimes, and numpy"
 category = "main"
 optional = false
@@ -608,8 +608,8 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.10"
-content-hash = "b2b1e0186d366a927da326bde206d0fbec5e16802291e562cb943f2fb4881df9"
+python-versions = "3.10.6"
+content-hash = "0ead917b6cfb5c21d24eaccb562b5998178be9671431dd49dff078f8a20d8028"
 
 [metadata.files]
 aiohttp = [
