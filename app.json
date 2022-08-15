@@ -1,0 +1,46 @@
+{
+  "name": "certinize-ecert-processor",
+  "description": "Certinize e-Certificate storage and processor",
+  "env": {
+    "ALLOWED_ORIGINS": {
+      "description": "Origins (domain, scheme, or port) allowed to use the app as a backend. Allow all as default",
+      "required": false,
+      "value": ["*"]
+    },
+    "IMAGEKIT_ENDPOINT_URL": {
+      "description": "The endpoint URL of your ImageKit media library.",
+      "required": true
+    },
+    "IMAGEKIT_PUBLIC_KEY": {
+      "description": "Your ImageKit public key.",
+      "required": true
+    },
+    "IMAGEKIT_PRIVATE_KEY": {
+      "description": "Your ImageKit private key.",
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:hobby-dev",
+      "options": {
+        "version": "14"
+      },
+      "as": "DATABASE"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "https://github.com/moneymeets/python-poetry-buildpack.git"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ]
+}

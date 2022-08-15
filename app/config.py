@@ -10,6 +10,7 @@ class AppSettings(BaseAppSettings):
     debug = False
     title = "Certinize image processor"
     version = "0.1.0"
+    allow_origins: list[str] = ["*"]
 
     imagekit_endpoint_url: pydantic.AnyHttpUrl = pydantic.AnyHttpUrl(
         url="https://", scheme="https"
