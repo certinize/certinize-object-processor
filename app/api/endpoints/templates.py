@@ -8,7 +8,7 @@ from app.api.dependencies import tempaltes
 router = fastapi.APIRouter(prefix="/templates")
 
 
-@router.post("")
+@router.post("", status_code=201)
 async def add_certificate_template(
     _: requests.Request,
     filename: str = fastapi.Form(),
