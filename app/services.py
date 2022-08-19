@@ -1,16 +1,18 @@
 """
-app.services.imagekit
-~~~~~~~~~~~~~~~~~~~~~
-This modiles contains a client for interacting with ImageKit.io's REST API.
-For a more comprehensive documentation, see:
-https://docs.imagekit.io/api-reference/api-introduction
+app.services
+~~~~~~~~~~~~
 """
+import asyncio
 import base64
 import dataclasses
+import io
 import typing
 
 import aiohttp
 import orjson
+from PIL import Image, ImageDraw, ImageFont
+
+from app import models
 
 
 @dataclasses.dataclass
@@ -30,7 +32,81 @@ class MediaApi:
 
 
 class ImageProcessor:
-    ...
+    """Image processing client."""
+
+    async def _attach_text(
+        self,
+        image: Image.Image,
+        certificate_issuance_date: models.CertificateIssuanceDate,
+        certificate_meta: models.CertificateMeta,
+        certificate_recipient: models.CertificateRecipient,
+    ) -> bytes:
+        """Attach text on an e-Certificate template.
+
+        Args:
+            draw (ImageDraw.ImageDraw): An instance of `PIL.ImageDraw.ImageDraw`.
+            image (Image.Image): An instance of `PIL.Image.Image`.
+            image_processor_params (models.ImageProcessorParams): An instance of
+                `app.models.ImageProcessorParams`
+
+        Returns:
+            bytes: Text attachment result.
+        """
+        draw = ImageDraw.Draw(image)
+        draw.text(  # type: ignore
+            xy=certificate_recipient.text_position,
+            text=certificate_recipient.recipient_name,
+            fill=certificate_meta.font_color,
+            font=ImageFont.truetype(
+                io.BytesIO(certificate_meta.font_style),
+                certificate_recipient.text_size,
+            ),
+            anchor="mm",
+        )
+        draw.text(  # type: ignore
+            xy=certificate_issuance_date.text_position,
+            text=certificate_issuance_date.issuance_date,
+            fill=certificate_meta.font_color,
+            font=ImageFont.truetype(
+                io.BytesIO(certificate_meta.font_style),
+                certificate_issuance_date.text_size,
+            ),
+            anchor="mm",
+        )
+        writer = io.BytesIO()
+        image.save(writer, format="jpeg")
+        return writer.getvalue()
+
+    async def attach_text(
+        self,
+        certificate_issuance_date: models.CertificateIssuanceDate,
+        certificate_meta: models.CertificateMeta,
+        certificate_recipients: list[models.CertificateRecipient],
+    ):
+        """Attach a buch of texts on an e-Certificate template.
+
+        Args:
+            imp_collection (list[models.ImageProcessorParams]): List of e-Certificate
+                metadata.
+
+        Returns:
+            list[pool.ApplyResult[typing.Any]]: Generated e-Certificates.
+        """
+        image = Image.open(io.BytesIO(certificate_meta.template))
+
+        results = await asyncio.gather(
+            *(
+                self._attach_text(
+                    image,
+                    certificate_issuance_date,
+                    certificate_meta,
+                    recipient_meta,
+                )
+                for recipient_meta in certificate_recipients
+            )
+        )
+
+        return results
 
 
 class ImageKitClient:
@@ -76,14 +152,18 @@ class ImageKitClient:
         self, folder_name: str, parent_folder_path: str
     ) -> dict[str, str | typing.Any]:
         """Create a folder in the ImageKit.io media library.
+
         References:
             https://docs.imagekit.io/api-reference
+
         Args:
             folder_name (str): The name of the folder to be created.
             parent_folder_path (str): The folder where the new folder should be
                 created.
+
         Returns:
-            typing.Any: _description_
+            dict[str, str | typing.Any]: JSON object containing the result of the
+                folder creation process.
         """
         url = f"{self.upload_api.UPLOAD_API}{self.upload_api.FILE_UPLOAD_ENDPOINT}"
         request_body = {
