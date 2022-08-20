@@ -1,3 +1,5 @@
+import asyncio
+import io
 import typing
 import uuid
 
@@ -12,18 +14,34 @@ router = fastapi.APIRouter(prefix="/certificates")
 
 
 async def _upload_ecertificates(
-    imagekit_client: services.ImageKitClient, ecerts: list[bytes]
-) -> list[dict[str, typing.Any]]:
-    folder = str(uuid.uuid4())
-    responses: list[dict[str, typing.Any]] = []
+    gdrive_client: services.GoogleDriveClient, ecerts: list[io.BytesIO]
+) -> list[tuple[str, str]]:
+    responses: list[tuple[str, str]] = []
+    loop = asyncio.get_running_loop()
+    gdrive_folder = await gdrive_client.create_folder(
+        loop=loop, folder_name=str(uuid.uuid4())
+    )
+    gdrive_folder_id: str = gdrive_folder["id"]
 
     for ecert in ecerts:
-        response = await imagekit_client.upload_file(
+        response = await gdrive_client.upload_file(
+            loop=loop,
             file=ecert,
             file_name=str(uuid.uuid1()),
-            options={"folder": folder},
+            folder_id=gdrive_folder_id,
         )
         responses.append(response)
+
+    # This is the code we will use if we want to store the generated e-Certificates to
+    # ImageKit.io instead:
+    # folder = str(uuid.uuid1())
+    # for ecert in ecerts:
+    #     response = await imagekit_client.upload_file(
+    #         file=ecert,
+    #         file_name=str(uuid.uuid1()),
+    #         options={"folder": folder},
+    #     )
+    #     responses.append(response)
 
     return responses
 
@@ -32,13 +50,13 @@ async def _generate_ecertificate(
     http_client: aiohttp.ClientSession,
     certificate_template_meta: models.CertificateTemplateMeta,
     image_processor: services.ImageProcessor,
-    imagekit_client: services.ImageKitClient,
-):
-    font_url = await http_client.get(certificate_template_meta.font_url)
-    font_style = await font_url.read()
+    gdrive_client: services.GoogleDriveClient,
+) -> list[dict[str, dict[str, str]]]:
+    font_src = await http_client.get(certificate_template_meta.font_url)
+    font_style = await font_src.read()
 
-    template_url = await http_client.get(certificate_template_meta.template_url)
-    template = await template_url.read()
+    template_src = await http_client.get(certificate_template_meta.template_url)
+    template = await template_src.read()
 
     recipient_name_meta = certificate_template_meta.recipient_name_meta
     recipient_name_fontsize = recipient_name_meta["font_size"]
@@ -84,20 +102,33 @@ async def _generate_ecertificate(
         certificate_recipients=certificate_recipients,
     )
 
-    return await _upload_ecertificates(
-        imagekit_client=imagekit_client, ecerts=[result for result in results]
+    ecerts: list[dict[str, dict[str, str]]] = []
+    ecerts_loc = await _upload_ecertificates(
+        gdrive_client=gdrive_client, ecerts=[io.BytesIO(result) for result in results]
     )
 
+    for ecert, recipient in zip(ecerts_loc, certificate_recipients):
+        ecerts.append(
+            {
+                ecert[1]: {
+                    "certificate_url": ecert[0],
+                    "recipient_name": recipient.recipient_name,
+                }
+            }
+        )
 
-@router.post("/", status_code=201)
+    return ecerts
+
+
+@router.post("/")
 async def generate_ecertificate(
     requests: fastapi.Request,
     certificate_template_meta: models.CertificateTemplateMeta,
     image_processor: services.ImageProcessor = fastapi.Depends(
         certificates.get_image_processor
     ),
-    imagekit_client: services.ImageKitClient = fastapi.Depends(
-        certificates.get_imagekit_client
+    gdrive_client: services.GoogleDriveClient = fastapi.Depends(
+        certificates.get_gdrive_client
     ),
 ) -> typing.Any:
     assert isinstance(requests.app.state.http_client, aiohttp.ClientSession)
@@ -106,7 +137,7 @@ async def generate_ecertificate(
         http_client=requests.app.state.http_client,
         certificate_template_meta=certificate_template_meta,
         image_processor=image_processor,
-        imagekit_client=imagekit_client,
+        gdrive_client=gdrive_client,
     )
 
-    return responses.ORJSONResponse(content={"results": result})
+    return responses.ORJSONResponse(content={"certificates": result}, status_code=201)

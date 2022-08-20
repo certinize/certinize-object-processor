@@ -6,11 +6,13 @@ import asyncio
 import base64
 import dataclasses
 import io
+import json
 import typing
 
 import aiohttp
 import orjson
 from PIL import Image, ImageDraw, ImageFont
+from pydrive2 import drive, files, fs
 
 from app import models
 
@@ -90,7 +92,7 @@ class ImageProcessor:
                 metadata.
 
         Returns:
-            list[pool.ApplyResult[typing.Any]]: Generated e-Certificates.
+            list[pool.ApplyResult[typing.Any]]: Generated e-Certificates in bytes.
         """
         image = Image.open(io.BytesIO(certificate_meta.template))
 
@@ -110,7 +112,7 @@ class ImageProcessor:
 
 
 class ImageKitClient:
-    """Async ImageKit client."""
+    """Asynchronous ImageKit client."""
 
     DEFAULT_ENCODING = "utf-8"
 
@@ -183,12 +185,15 @@ class ImageKitClient:
         options: dict[str, typing.Any],
     ) -> dict[str, typing.Any]:
         """Upload files to the ImageKit.io media library.
+
         References:
             https://docs.imagekit.io/api-reference
+
         Args:
             file (bytes | typing.BinaryIO): The file content or URL.
             file_name (str): The name with which the file has to be uploaded.
             options (dict[str, typing.Any]): The rest of the requst structure.
+
         Returns:
             dict[str, typing.Any]: Dictionary containing the uploaded file details.
         """
@@ -202,3 +207,165 @@ class ImageKitClient:
 
         response = await self.session.post(url=url, data=form_data)
         return await response.json()
+
+
+class GoogleDriveClient:
+    """Asynchronous Google Drive client."""
+
+    file_system: fs.GDriveFileSystem
+
+    def __init__(self, client_json: str) -> None:
+        self.file_system = fs.GDriveFileSystem(
+            "root", use_service_account=True, client_json=client_json
+        )
+
+    async def create_folder(
+        self, loop: asyncio.AbstractEventLoop, folder_name: str
+    ) -> files.GoogleDriveFile:
+        """Create a Google Drive folder.
+
+        Args:
+            loop (asyncio.AbstractEventLoop): An asyncio event loop.
+            folder_name (str): The name of the folder to create.
+        """
+        gdrive: drive.GoogleDrive = self.file_system.client  # type: ignore
+        folder: files.GoogleDriveFile = await loop.run_in_executor(
+            None,
+            gdrive.CreateFile,  # type: ignore
+            {"title": folder_name, "mimeType": "application/vnd.google-apps.folder"},
+        )
+
+        await loop.run_in_executor(None, folder.Upload)  # type: ignore
+
+        return folder
+
+    async def upload_file(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        file: bytes | io.BytesIO,
+        file_name: str,
+        folder_id: str,
+    ) -> tuple[str, str]:
+        """Upload a file object to a Google Drive folder.
+
+        Args:
+            loop (asyncio.AbstractEventLoop): An asyncio event loop.
+            file (io.BytesIO): The file content.
+            file_name (str): The name of the file to upload.
+            folder_id (str): ID of the where the file will be stored.
+
+        Returns:
+            tuple[str, str]: A shareable link to the uploaded file and the file ID,
+                respectively.
+        """
+        gdrive: drive.GoogleDrive = self.file_system.client  # type: ignore
+        file_: files.GoogleDriveFile = await loop.run_in_executor(
+            None, gdrive.CreateFile, {"title": file_name, "parents": [{"id": folder_id}]}  # type: ignore
+        )
+        file_.content = file
+
+        await loop.run_in_executor(None, file_.Upload)  # type: ignore
+
+        # Why not use GoogleDriveFile.InsertPermission()? InsertPermission() doesn't
+        # include the supportsAllDrives param, which is necessary when we want to
+        # create a file on a shared folder with the necessary permissions and get a
+        # shareable link. In this case, we have to make the request ourselves and
+        # manually set supportsAllDrives to True.
+        access_token: str = gdrive.auth.credentials.access_token  # type: ignore
+        file_id: str = file_["id"]
+        url = (
+            f"https://www.googleapis.com/drive/v3/files/"
+            f"{file_id}/permissions?supportsAllDrives=true"
+        )
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        payload = json.dumps({"type": "anyone", "value": "anyone", "role": "reader"})
+
+        link: str
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=url, data=payload, headers=headers) as _:
+                # We have to assign the link here to get the shareable link on time.
+                link = file_["alternateLink"]
+
+        return link, file_id
+
+    async def get_files(
+        self, loop: asyncio.AbstractEventLoop, query: dict[str, str]
+    ) -> list[files.GoogleDriveFile]:
+        """Retrieve all files using a specified search query.
+
+        For a list of possible search terms, refer to the Drive API docs:
+        https://developers.google.com/drive/api/guides/ref-search-terms
+
+        Args:
+            loop (asyncio.AbstractEventLoop): _description_
+            query (dict[str, str]): A query string containing a query term, operator,
+                and values.
+
+        Returns:
+            list[files.GoogleDriveFile]: Files that matched the search query.
+        """
+        gdrive: drive.GoogleDrive = self.file_system.client  # type: ignore
+        file_list: files.GoogleDriveFileList = await loop.run_in_executor(
+            None,
+            gdrive.ListFile,  # type: ignore
+            query,
+        )
+        gdrive_files: list[files.GoogleDriveFile] = await loop.run_in_executor(
+            None,
+            file_list.GetList,  # type: ignore
+        )
+
+        return gdrive_files
+
+    async def get_all_files(
+        self, loop: asyncio.AbstractEventLoop
+    ) -> list[files.GoogleDriveFile]:
+        """Retrieve all files, including folders and subfolders, from Google Drive.
+
+        Args:
+            loop (asyncio.AbstractEventLoop): An asyncio event loop.
+
+        Returns:
+            list[files.GoogleDriveFile]: List of files stored in Google Drive.
+        """
+        return await self.get_files(loop=loop, query={"q": "trashed=false"})
+
+    async def delete_folder(
+        self, loop: asyncio.AbstractEventLoop, folder_id: str
+    ) -> None:
+        """Permanently delete a folder's content and the folder itself.
+
+        Args:
+            loop (asyncio.AbstractEventLoop): An asyncio event loop.
+            folder_id (str): ID of the folder to delete.
+        """
+        folder_files = await self.get_files(
+            loop=loop, query={"q": f"'{folder_id}' in parents and trashed=false"}
+        )
+
+        for file in folder_files:
+            await loop.run_in_executor(None, file.Delete)  # type: ignore
+
+        gdrive_files = await self.get_files(
+            loop=loop, query={"q": f"'root' in parents and trashed=false"}
+        )
+
+        for file in gdrive_files:
+            if file["id"] == folder_id:
+                await loop.run_in_executor(None, file.Delete)  # type: ignore
+                break
+
+    async def delete_all_files(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Permanently delete all files, including folders and subfolders.
+
+        Args:
+            loop (asyncio.AbstractEventLoop): An asyncio event loop.
+        """
+        gdrive_files = await self.get_files(loop=loop, query={"q": "trashed=false"})
+
+        for file in gdrive_files:
+            await loop.run_in_executor(None, file.Delete)  # type: ignore
