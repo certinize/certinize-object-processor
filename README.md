@@ -27,16 +27,4 @@
     4. Select *Create new key*.
     5. Select *JSON* as the key type.
     6. Click *Create* and you should see a JSON file being downloaded from your browser.
-    7. Once the download completes, open the JSON file. Copy and paste the values to their corresponding environment variables in your machine or `.env` file.
-
-        ```sh
-        GDRIVE_SVCS_ACC_PROJECT_ID=""
-        GDRIVE_SVCS_ACC_PRIVATE_KEY_ID=""
-        GDRIVE_SVCS_ACC_PRIVATE_KEY=""
-        GDRIVE_SVCS_ACC_CLIENT_EMAIL=""
-        GDRIVE_SVCS_ACC_CLIENT_ID=""
-        GDRIVE_SVCS_ACC_AUTH_URI=""
-        GDRIVE_SVCS_ACC_TOKEN_URI=""
-        GDRIVE_SVCS_ACC_AUTH_PROVIDER_X509_CERT_URL=""
-        GDRIVE_SVCS_ACC_CLIENT_X509_CERT_URL=""
-        ```
+    7. Once the download completes, rename the JSON file to `certinize-gdrive-client.json` and move it to the project root directory.
