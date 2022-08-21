@@ -18,17 +18,6 @@ class AppSettings(BaseAppSettings):
     imagekit_public_key = ""
     imagekit_private_key = ""
 
-    gdrive_svcs_acc_auth_provider_x509_cert_url = ""
-    gdrive_svcs_acc_auth_uri = ""
-    gdrive_svcs_acc_client_email = ""
-    gdrive_svcs_acc_client_id = ""
-    gdrive_svcs_acc_client_x509_cert_url = ""
-    gdrive_svcs_acc_private_key = ""
-    gdrive_svcs_acc_private_key_id = ""
-    gdrive_svcs_acc_project_id = ""
-    gdrive_svcs_acc_token_uri = ""
-    gdrive_svcs_acc_type = "service_account"
-
     logging_level = "INFO"
 
     class Config(BaseAppSettings.Config):

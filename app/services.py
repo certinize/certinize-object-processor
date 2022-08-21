@@ -211,9 +211,11 @@ class GoogleDriveClient:
 
     file_system: fs.GDriveFileSystem
 
-    def __init__(self, client_json: str) -> None:
+    def __init__(self, client_json_file_path: str) -> None:
         self.file_system = fs.GDriveFileSystem(
-            "root", use_service_account=True, client_json=client_json
+            "root",
+            use_service_account=True,
+            client_json_file_path=client_json_file_path,
         )
 
     async def create_folder(
