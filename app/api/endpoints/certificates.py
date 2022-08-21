@@ -112,6 +112,7 @@ async def _generate_ecertificate(
                 "certificate_url": ecert[0],
                 "file_id": ecert[1],
                 "recipient_name": recipient.recipient_name,
+                "issuance_date": certificate_issuance_date.issuance_date,
             }
         )
 
@@ -138,4 +139,4 @@ async def generate_ecertificate(
         gdrive_client=gdrive_client,
     )
 
-    return responses.ORJSONResponse(content={"certificates": result}, status_code=201)
+    return responses.ORJSONResponse(content={"certificate": result}, status_code=201)
