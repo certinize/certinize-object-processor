@@ -38,7 +38,6 @@ class ImageProcessor:
 
     async def _attach_text(
         self,
-        image: Image.Image,
         certificate_issuance_date: models.CertificateIssuanceDate,
         certificate_meta: models.CertificateMeta,
         certificate_recipient: models.CertificateRecipient,
@@ -54,6 +53,7 @@ class ImageProcessor:
         Returns:
             bytes: Text attachment result.
         """
+        image = Image.open(io.BytesIO(certificate_meta.template))
         draw = ImageDraw.Draw(image)
         draw.text(  # type: ignore
             xy=certificate_recipient.text_position,
@@ -85,7 +85,7 @@ class ImageProcessor:
         certificate_meta: models.CertificateMeta,
         certificate_recipients: list[models.CertificateRecipient],
     ):
-        """Attach a buch of texts on an e-Certificate template.
+        """Attach a bunch of texts on an e-Certificate template.
 
         Args:
             imp_collection (list[models.ImageProcessorParams]): List of e-Certificate
@@ -94,12 +94,9 @@ class ImageProcessor:
         Returns:
             list[pool.ApplyResult[typing.Any]]: Generated e-Certificates in bytes.
         """
-        image = Image.open(io.BytesIO(certificate_meta.template))
-
         results = await asyncio.gather(
             *(
                 self._attach_text(
-                    image,
                     certificate_issuance_date,
                     certificate_meta,
                     recipient_meta,

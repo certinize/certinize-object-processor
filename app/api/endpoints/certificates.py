@@ -1,6 +1,5 @@
 import asyncio
 import io
-import typing
 import uuid
 
 import aiohttp
@@ -51,7 +50,7 @@ async def _generate_ecertificate(
     certificate_template_meta: models.CertificateTemplateMeta,
     image_processor: services.ImageProcessor,
     gdrive_client: services.GoogleDriveClient,
-) -> list[dict[str, dict[str, str]]]:
+) -> list[dict[str, str]]:
     font_src = await http_client.get(certificate_template_meta.font_url)
     font_style = await font_src.read()
 
@@ -102,7 +101,7 @@ async def _generate_ecertificate(
         certificate_recipients=certificate_recipients,
     )
 
-    ecerts: list[dict[str, dict[str, str]]] = []
+    ecerts: list[dict[str, str]] = []
     ecerts_loc = await _upload_ecertificates(
         gdrive_client=gdrive_client, ecerts=[io.BytesIO(result) for result in results]
     )
@@ -110,10 +109,10 @@ async def _generate_ecertificate(
     for ecert, recipient in zip(ecerts_loc, certificate_recipients):
         ecerts.append(
             {
-                ecert[1]: {
-                    "certificate_url": ecert[0],
-                    "recipient_name": recipient.recipient_name,
-                }
+                "certificate_url": ecert[0],
+                "file_id": ecert[1],
+                "recipient_name": recipient.recipient_name,
+                "issuance_date": certificate_issuance_date.issuance_date,
             }
         )
 
@@ -130,7 +129,7 @@ async def generate_ecertificate(
     gdrive_client: services.GoogleDriveClient = fastapi.Depends(
         certificates.get_gdrive_client
     ),
-) -> typing.Any:
+) -> responses.ORJSONResponse:
     assert isinstance(requests.app.state.http_client, aiohttp.ClientSession)
 
     result = await _generate_ecertificate(
@@ -140,4 +139,4 @@ async def generate_ecertificate(
         gdrive_client=gdrive_client,
     )
 
-    return responses.ORJSONResponse(content={"certificates": result}, status_code=201)
+    return responses.ORJSONResponse(content={"certificate": result}, status_code=201)
