@@ -1,4 +1,3 @@
-import json
 import typing
 
 import aiohttp
@@ -31,21 +30,9 @@ async def create_http_client_session(app: fastapi.FastAPI) -> None:
 
 
 async def create_gdrive_client(app: fastapi.FastAPI) -> None:
-    client_json = json.dumps(
-        {
-            "type": settings.gdrive_svcs_acc_type,
-            "project_id": settings.gdrive_svcs_acc_project_id,
-            "private_key_id": settings.gdrive_svcs_acc_private_key_id,
-            "private_key": settings.gdrive_svcs_acc_private_key,
-            "client_email": settings.gdrive_svcs_acc_client_email,
-            "client_id": settings.gdrive_svcs_acc_client_id,
-            "auth_uri": settings.gdrive_svcs_acc_auth_uri,
-            "token_uri": settings.gdrive_svcs_acc_token_uri,
-            "auth_provider_x509_cert_url": settings.gdrive_svcs_acc_auth_provider_x509_cert_url,
-            "client_x509_cert_url": settings.gdrive_svcs_acc_client_x509_cert_url,
-        }
+    app.state.gdrive = services.GoogleDriveClient(
+        client_json_file_path="certinize-gdrive-client.json"
     )
-    app.state.gdrive = services.GoogleDriveClient(client_json=client_json)
 
 
 async def dispose_imagekit_client(app: fastapi.FastAPI) -> None:
