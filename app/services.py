@@ -33,7 +33,7 @@ class MediaApi:
     FOLDER_ENDPOINT = "/v1/folder"
 
 
-class ImageProcessor:
+class ImageProcessor:  # pylint: disable=R0903
     """Image processing client."""
 
     async def _attach_text(
@@ -259,7 +259,9 @@ class GoogleDriveClient:
         """
         gdrive: drive.GoogleDrive = self.file_system.client  # type: ignore
         file_: files.GoogleDriveFile = await loop.run_in_executor(
-            None, gdrive.CreateFile, {"title": file_name, "parents": [{"id": folder_id}]}  # type: ignore
+            None,
+            gdrive.CreateFile,  # type: ignore
+            {"title": file_name, "parents": [{"id": folder_id}]},
         )
         file_.content = file
 
@@ -350,7 +352,7 @@ class GoogleDriveClient:
             await loop.run_in_executor(None, file.Delete)  # type: ignore
 
         gdrive_files = await self.get_files(
-            loop=loop, query={"q": f"'root' in parents and trashed=false"}
+            loop=loop, query={"q": "'root' in parents and trashed=false"}
         )
 
         for file in gdrive_files:

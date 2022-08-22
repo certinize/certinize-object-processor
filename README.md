@@ -28,3 +28,5 @@
     5. Select *JSON* as the key type.
     6. Click *Create* and you should see a JSON file being downloaded from your browser.
     7. Once the download completes, rename the JSON file to `certinize-gdrive-client.json` and move it to the project root directory.
+
+        > CAUTION: Do not include your private key or the certinize-gdrive-client.json file in your commits unless you are deploying to hosting services like Heroku.

@@ -19,5 +19,7 @@ async def add_certificate_template(
     ),
 ):
     return await imagekit_client.upload_file(
-        file=fileb.file.read(), file_name=filename, options=orjson.loads(options)
+        file=fileb.file.read(),
+        file_name=filename,
+        options=orjson.loads(options),  # pylint: disable=E1101
     )

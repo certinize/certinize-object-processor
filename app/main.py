@@ -1,22 +1,21 @@
 import fastapi
 
-import app.api.routers as routers
-import app.config as config
-from app import events
+from app import config, events
+from app.api import routers
 
 
 def get_application() -> fastapi.FastAPI:
-    app = fastapi.FastAPI(debug=config.settings.debug, version=config.settings.version)
+    app_ = fastapi.FastAPI(debug=config.settings.debug, version=config.settings.version)
 
-    app.add_event_handler(  # type: ignore
-        "startup", events.create_start_app_handler(app)
+    app_.add_event_handler(  # type: ignore
+        "startup", events.create_start_app_handler(app_)
     )
-    app.add_event_handler(  # type: ignore
-        "shutdown", events.create_stop_app_handler(app)
+    app_.add_event_handler(  # type: ignore
+        "shutdown", events.create_stop_app_handler(app_)
     )
 
-    app.include_router(routers.router)
-    return app
+    app_.include_router(routers.router)
+    return app_
 
 
 app = get_application()

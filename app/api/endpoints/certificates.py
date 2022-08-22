@@ -15,7 +15,7 @@ router = fastapi.APIRouter(prefix="/certificates")
 async def _upload_ecertificates(
     gdrive_client: services.GoogleDriveClient, ecerts: list[io.BytesIO]
 ) -> list[tuple[str, str]]:
-    responses: list[tuple[str, str]] = []
+    responses_: list[tuple[str, str]] = []
     loop = asyncio.get_running_loop()
     gdrive_folder = await gdrive_client.create_folder(
         loop=loop, folder_name=str(uuid.uuid4())
@@ -29,7 +29,7 @@ async def _upload_ecertificates(
             file_name=str(uuid.uuid1()),
             folder_id=gdrive_folder_id,
         )
-        responses.append(response)
+        responses_.append(response)
 
     # This is the code we will use if we want to store the generated e-Certificates to
     # ImageKit.io instead:
@@ -42,7 +42,7 @@ async def _upload_ecertificates(
     #     )
     #     responses.append(response)
 
-    return responses
+    return responses_
 
 
 async def _generate_ecertificate(
@@ -51,49 +51,43 @@ async def _generate_ecertificate(
     image_processor: services.ImageProcessor,
     gdrive_client: services.GoogleDriveClient,
 ) -> list[dict[str, str]]:
+    # These assertions are purely for pyright to be able to understand the code; the
+    # validators should have already checked the values.
+    assert isinstance(certificate_template_meta.recipient_name_meta["font_size"], int)
+    assert isinstance(certificate_template_meta.issuance_date_meta["font_size"], int)
+    assert isinstance(certificate_template_meta.recipient_name_meta["position"], dict)
+    assert isinstance(certificate_template_meta.issuance_date_meta["position"], dict)
+
     font_src = await http_client.get(certificate_template_meta.font_url)
-    font_style = await font_src.read()
-
     template_src = await http_client.get(certificate_template_meta.template_url)
-    template = await template_src.read()
 
-    recipient_name_meta = certificate_template_meta.recipient_name_meta
-    recipient_name_fontsize = recipient_name_meta["font_size"]
-    assert isinstance(recipient_name_fontsize, int)
-
-    issuance_date_meta = certificate_template_meta.issuance_date_meta
-    issuance_date_fontsize = issuance_date_meta["font_size"]
-    assert isinstance(issuance_date_fontsize, int)
-
-    recipient_name_position = (0, 0)
-    issuance_date_position = (0, 0)
-
-    if not isinstance(
-        (recname_meta_pos := recipient_name_meta["position"]), int
-    ) and not isinstance((issuance_meta_pos := issuance_date_meta["position"]), int):
-        recipient_name_position = (recname_meta_pos["x"], recname_meta_pos["y"])
-        issuance_date_position = (issuance_meta_pos["x"], issuance_meta_pos["y"])
-
+    # Construct image processor options
     certificate_issuance_date = models.CertificateIssuanceDate(
         issuance_date=str(certificate_template_meta.issuance_date),
-        text_position=issuance_date_position,
-        text_size=issuance_date_fontsize,
+        text_position=(
+            certificate_template_meta.issuance_date_meta["position"]["x"],
+            certificate_template_meta.issuance_date_meta["position"]["y"],
+        ),
+        text_size=certificate_template_meta.issuance_date_meta["font_size"],
     )
 
     certificate_meta = models.CertificateMeta(
-        font_style=font_style, font_color="black", template=template
+        font_style=await font_src.read(),
+        font_color="black",
+        template=await template_src.read(),
     )
 
-    certificate_recipients: list[models.CertificateRecipient] = []
-
-    for name in certificate_template_meta.recipients:
-        certificate_recipients.append(
-            models.CertificateRecipient(
-                recipient_name=name["recipient_name"],
-                text_position=recipient_name_position,
-                text_size=recipient_name_fontsize,
-            )
+    certificate_recipients: list[models.CertificateRecipient] = [
+        models.CertificateRecipient(
+            recipient_name=name["recipient_name"],
+            text_position=(
+                certificate_template_meta.recipient_name_meta["position"]["x"],
+                certificate_template_meta.recipient_name_meta["position"]["y"],
+            ),
+            text_size=certificate_template_meta.recipient_name_meta["font_size"],
         )
+        for name in certificate_template_meta.recipients
+    ]
 
     results = await image_processor.attach_text(
         certificate_issuance_date=certificate_issuance_date,
@@ -101,22 +95,19 @@ async def _generate_ecertificate(
         certificate_recipients=certificate_recipients,
     )
 
-    ecerts: list[dict[str, str]] = []
     ecerts_loc = await _upload_ecertificates(
         gdrive_client=gdrive_client, ecerts=[io.BytesIO(result) for result in results]
     )
 
-    for ecert, recipient in zip(ecerts_loc, certificate_recipients):
-        ecerts.append(
-            {
-                "certificate_url": ecert[0],
-                "file_id": ecert[1],
-                "recipient_name": recipient.recipient_name,
-                "issuance_date": certificate_issuance_date.issuance_date,
-            }
-        )
-
-    return ecerts
+    return [
+        {
+            "certificate_url": ecert[0],
+            "file_id": ecert[1],
+            "recipient_name": recipient.recipient_name,
+            "issuance_date": certificate_issuance_date.issuance_date,
+        }
+        for ecert, recipient in zip(ecerts_loc, certificate_recipients)
+    ]
 
 
 @router.post("/")
@@ -130,10 +121,12 @@ async def generate_ecertificate(
         certificates.get_gdrive_client
     ),
 ) -> responses.ORJSONResponse:
-    assert isinstance(requests.app.state.http_client, aiohttp.ClientSession)
+    http_client = requests.app.state.http_client
+
+    assert isinstance(http_client, aiohttp.ClientSession)
 
     result = await _generate_ecertificate(
-        http_client=requests.app.state.http_client,
+        http_client=http_client,
         certificate_template_meta=certificate_template_meta,
         image_processor=image_processor,
         gdrive_client=gdrive_client,
