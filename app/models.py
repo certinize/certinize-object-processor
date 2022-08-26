@@ -5,92 +5,33 @@ import typing
 import pydantic
 
 
+class Recipient(pydantic.BaseModel):
+    recipient_name: str = pydantic.Field(min_length=1)
+
+
+class CertificateTextMeta(pydantic.BaseModel):
+    font_size: int
+    position: dict[str, int]
+
+    @pydantic.validator("position")
+    @classmethod
+    def position_must_have_axes(cls, value: typing.Any):
+        if "x" not in value:
+            raise ValueError("position must have x axis")
+
+        if "y" not in value:
+            raise ValueError("position must have y axis")
+
+        return value
+
+
 class CertificateTemplateMeta(pydantic.BaseModel):
-    recipient_name_meta: dict[str, int | dict[str, int]]
-    issuance_date_meta: dict[str, int | dict[str, int]]
+    recipient_name_meta: CertificateTextMeta
+    issuance_date_meta: CertificateTextMeta
     template_url: pydantic.HttpUrl
     font_url: pydantic.HttpUrl
     issuance_date: datetime.date
-    recipients: list[dict[str, str]]
-
-    @pydantic.validator("recipient_name_meta")
-    @classmethod
-    def recipient_name_meta_must_have_valid_structure(
-        cls, value: dict[str, typing.Any]
-    ):
-        # Check if value has font_size and position keys
-        if "font_size" not in value:
-            raise ValueError("recipient_name_meta must have a font_size key")
-
-        if "position" not in value:
-            raise ValueError("recipient_name_meta must have a position key")
-
-        # Check if value font_size is an int
-        if not isinstance(value["font_size"], int):
-            raise ValueError("recipient_name_meta font_size must be an int")
-
-        # Check if value position is a dict with x and y keys
-        if "x" not in value["position"]:
-            raise ValueError("recipient_name_meta position must have a x key")
-
-        if "y" not in value["position"]:
-            raise ValueError("recipient_name_meta position must have a y key")
-
-        # Check if value position x is an int
-        if not isinstance(value["position"]["x"], int):
-            raise ValueError("recipient_name_meta position x must be an int")
-
-        # Check if value position y is an int
-        if not isinstance(value["position"]["y"], int):
-            raise ValueError("recipient_name_meta position y must be an int")
-
-        return value
-
-    @pydantic.validator("issuance_date_meta")
-    @classmethod
-    def issuance_date_meta_must_have_valid_structure(cls, value: dict[str, typing.Any]):
-        # Check if value has font_size and position keys
-        if "font_size" not in value:
-            raise ValueError("issuance_date_meta must have a font_size key")
-
-        if "position" not in value:
-            raise ValueError("issuance_date_meta must have a position key")
-
-        # Check if value font_size is an int
-        if not isinstance(value["font_size"], int):
-            raise ValueError("issuance_date_meta font_size must be an int")
-
-        # Check if value position is a dict with x and y keys
-        if "x" not in value["position"]:
-            raise ValueError("issuance_date_meta position must have a x key")
-
-        if "y" not in value["position"]:
-            raise ValueError("issuance_date_meta position must have a y key")
-
-        # Check if value position x and y are integers
-        if not isinstance(value["position"]["x"], int):
-            raise ValueError("issuance_date_meta position x must be an int")
-
-        if not isinstance(value["position"]["y"], int):
-            raise ValueError("issuance_date_meta position y must be an int")
-
-        return value
-
-    @pydantic.validator("recipients")
-    @classmethod
-    def recipients_must_have_valid_structure(cls, value: list[dict[str, str]]):
-        # Check if list contains dicts with name keys
-        for recipients in value:
-            if "recipient_name" not in recipients:
-                raise ValueError("recipients must have a recipient_name key")
-
-            # Check that value name does not have a zero length
-            # We don't want users sending strings with zero length. They should be
-            # marked as spam.
-            if len(recipients["recipient_name"]) == 0:
-                raise ValueError("recipient name must not be empty")
-
-        return value
+    recipients: list[Recipient]
 
 
 @dataclasses.dataclass

@@ -53,10 +53,6 @@ async def _generate_ecertificate(
 ) -> list[dict[str, str]]:
     # These assertions are purely for pyright to be able to understand the code; the
     # validators should have already checked the values.
-    assert isinstance(certificate_template_meta.recipient_name_meta["font_size"], int)
-    assert isinstance(certificate_template_meta.issuance_date_meta["font_size"], int)
-    assert isinstance(certificate_template_meta.recipient_name_meta["position"], dict)
-    assert isinstance(certificate_template_meta.issuance_date_meta["position"], dict)
 
     font_src = await http_client.get(certificate_template_meta.font_url)
     template_src = await http_client.get(certificate_template_meta.template_url)
@@ -65,10 +61,10 @@ async def _generate_ecertificate(
     certificate_issuance_date = models.CertificateIssuanceDate(
         issuance_date=str(certificate_template_meta.issuance_date),
         text_position=(
-            certificate_template_meta.issuance_date_meta["position"]["x"],
-            certificate_template_meta.issuance_date_meta["position"]["y"],
+            certificate_template_meta.issuance_date_meta.position["x"],
+            certificate_template_meta.issuance_date_meta.position["y"],
         ),
-        text_size=certificate_template_meta.issuance_date_meta["font_size"],
+        text_size=certificate_template_meta.issuance_date_meta.font_size,
     )
 
     certificate_meta = models.CertificateMeta(
@@ -79,12 +75,12 @@ async def _generate_ecertificate(
 
     certificate_recipients: list[models.CertificateRecipient] = [
         models.CertificateRecipient(
-            recipient_name=name["recipient_name"],
+            recipient_name=name.recipient_name,
             text_position=(
-                certificate_template_meta.recipient_name_meta["position"]["x"],
-                certificate_template_meta.recipient_name_meta["position"]["y"],
+                certificate_template_meta.recipient_name_meta.position["x"],
+                certificate_template_meta.recipient_name_meta.position["y"],
             ),
-            text_size=certificate_template_meta.recipient_name_meta["font_size"],
+            text_size=certificate_template_meta.recipient_name_meta.font_size,
         )
         for name in certificate_template_meta.recipients
     ]
