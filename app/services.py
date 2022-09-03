@@ -4,6 +4,7 @@ app.services
 """
 import asyncio
 import base64
+import contextlib
 import dataclasses
 import io
 import json
@@ -11,6 +12,7 @@ import typing
 
 import aiohttp
 import orjson
+import types_aiobotocore_s3
 from PIL import Image, ImageDraw, ImageFont
 from pydrive2 import drive, files, fs
 from types_aiobotocore_s3 import client as s3client
@@ -18,21 +20,15 @@ from types_aiobotocore_s3 import type_defs
 
 from app import models
 
-
-@dataclasses.dataclass
-class UploadFileApi:
-    """Dataclass for keeping track of ImageKit.io's Upload File API"""
-
-    UPLOAD_API = "https://upload.imagekit.io"
-    FILE_UPLOAD_ENDPOINT = "/api/v1/files/upload"
+IMAGEKIT_UPLOAD_API = "https://upload.imagekit.io"
+IMAGEKIT_FILE_UPLOAD = "/api/v1/files/upload"
 
 
 @dataclasses.dataclass
-class MediaApi:
-    """Dataclass for keeping track of ImageKit.io's Media API"""
-
-    MEDIA_API = "https://api.imagekit.io"
-    FOLDER_ENDPOINT = "/v1/folder"
+class S3ClientSession:
+    bucket_name: str
+    exit_stack: contextlib.AsyncExitStack
+    s3client: types_aiobotocore_s3.S3Client
 
 
 class ImageProcessor:  # pylint: disable=R0903
@@ -120,16 +116,12 @@ class ImageKitClient:
     _endpoint_url = ""
     _headers = {}
 
-    media_api: MediaApi
-    upload_api: UploadFileApi
     session: aiohttp.ClientSession
 
     def __init__(self, private_key: str, public_key: str, url_endpoint: str) -> None:
         self._private_key = private_key
         self._public_key = public_key
         self._endpoint_url = url_endpoint
-        self.media_api = MediaApi()
-        self.upload_api = UploadFileApi()
         self._create_request_header()
         self._create_client_session()
 
@@ -166,7 +158,7 @@ class ImageKitClient:
             dict[str, str | typing.Any]: JSON object containing the result of the
                 folder creation process.
         """
-        url = f"{self.upload_api.UPLOAD_API}{self.upload_api.FILE_UPLOAD_ENDPOINT}"
+        url = f"{IMAGEKIT_UPLOAD_API}{IMAGEKIT_FILE_UPLOAD}"
         request_body = {
             "folderName": folder_name,
             "parentFolderPath": parent_folder_path,
@@ -196,7 +188,7 @@ class ImageKitClient:
         Returns:
             dict[str, typing.Any]: Dictionary containing the uploaded file details.
         """
-        url = f"{self.upload_api.UPLOAD_API}{self.upload_api.FILE_UPLOAD_ENDPOINT}"
+        url = f"{IMAGEKIT_UPLOAD_API}{IMAGEKIT_FILE_UPLOAD}"
         request_body = {**{"fileName": file_name}, **options}
         form_data = aiohttp.FormData()
 
@@ -374,7 +366,7 @@ class GoogleDriveClient:
             await loop.run_in_executor(None, file.Delete)  # type: ignore
 
 
-class FilebaseClient:
+class S3Client:
     """Client implementation for Filebase's S3-compatible API."""
 
     @staticmethod
@@ -400,7 +392,7 @@ class FilebaseClient:
 
         Args:
             client (s3client.S3Client): A client representing S3.
-            bucket (str): The bucket name of the bucket containing the object.
+            bucket (str): Name of the bucket containing the object.
             key (str): Object key for which the PUT action was initiated.
             body (bytes): Object data.
 
@@ -416,12 +408,12 @@ class FilebaseClient:
     async def get_object(
         client: s3client.S3Client, bucket: str, key: str
     ) -> type_defs.GetObjectOutputTypeDef:
-        """Delete an object from an S3 bucket.
+        """Get an object from an S3 bucket.
 
         Args:
             client (s3client.S3Client): A client representing S3.
             bucket (str): Key of the object to get.
-            key (str): Key name of the object to delete.
+            key (str): Name of the object to get.
 
         Returns:
             type_defs.GetObjectOutputTypeDef: Get object output.
@@ -437,9 +429,70 @@ class FilebaseClient:
         Args:
             client (s3client.S3Client): A client representing S3.
             bucket (str): The bucket name of the bucket containing the object.
-            key (str): Key name of the object to delete.
+            key (str): Name of the object to delete.
 
         Returns:
             type_defs.DeleteObjectOutputTypeDef: Delete object output.
         """
         return await client.delete_object(Bucket=bucket, Key=key)
+
+    @staticmethod
+    async def generate_presigned_post(
+        client: s3client.S3Client, bucket: str, key: str, expiration: int | None = None
+    ) -> dict[str, typing.Any]:
+        try:
+            return await client.generate_presigned_post(
+                Bucket=bucket, Key=key, ExpiresIn=expiration or 3600
+            )
+        except client.exceptions.ClientError as client_err:
+            return {"details": str(client_err)}
+
+    @staticmethod
+    async def upload_with_presigned_post(
+        http_client: aiohttp.ClientSession,
+        presigned: dict[str, typing.Any],
+        file: bytes,
+    ):
+        print(f"\n{presigned}\n")
+        return await http_client.post(
+            presigned["url"], data=presigned["fields"] | {"file": file}
+        )
+
+
+class NftStorageClient:
+    """nft.storage API client
+
+    Docs: https://nft.storage/api-docs/
+    """
+
+    nft_storage_upload = "/upload"
+    nft_storage_api = ""
+    api_key = ""
+
+    def __init__(self, nft_storage_api: str, api_key: str) -> None:
+        self.nft_storage_api = nft_storage_api
+        self.api_key = api_key
+
+    async def upload_file(
+        self, http_client: aiohttp.ClientSession, file: dict[str, tuple[str, bytes]]
+    ):
+        form_data = aiohttp.FormData()
+
+        for filename, file_object in file.items():
+            form_data.add_field(
+                name="file",
+                value=file_object[1],
+                content_type=file_object[0],
+                filename=filename,
+            )
+
+        response = await http_client.post(
+            url=f"{self.nft_storage_api}{self.nft_storage_upload}",
+            data=form_data,
+            headers={
+                # "Content-Type": "multipart/form-data",
+                "Authorization": f"Bearer {self.api_key}",
+            },
+        )
+
+        return await response.json()

@@ -47,22 +47,59 @@ async def create_gdrive_client(app: fastapi.FastAPI) -> None:
     )
 
 
-async def create_s3_client(app: fastapi.FastAPI) -> None:
-    app.state.filebase_client = services.FilebaseClient()
-    app.state.s3_client_exit_stack = contextlib.AsyncExitStack()
-    app.state.s3_client = await app.state.s3_client_exit_stack.enter_async_context(
-        session.AioSession().create_client(  # type: ignore
-            "s3",
-            endpoint_url=settings.s3_api_endpoint_url,
-            aws_secret_access_key=settings.s3_secret_access_key,
-            aws_access_key_id=settings.s3_access_key_id,
-        )
+async def create_s3_client_interface(app: fastapi.FastAPI) -> None:
+    app.state.s3_client_interface = services.S3Client()
+
+
+async def create_filebase_s3_client(app: fastapi.FastAPI) -> None:
+    exit_stack = contextlib.AsyncExitStack()
+    app.state.filebase_client_session = services.S3ClientSession(
+        bucket_name=settings.filebase_s3_bucket,
+        exit_stack=exit_stack,
+        s3client=await exit_stack.enter_async_context(
+            session.AioSession().create_client(  # type: ignore
+                "s3",
+                endpoint_url=settings.filebase_s3_api_endpoint_url,
+                aws_secret_access_key=settings.filebase_s3_secret_access_key,
+                aws_access_key_id=settings.filebase_s3_access_key_id,
+            )
+        ),
     )
 
 
-async def dispose_s3_client(app: fastapi.FastAPI) -> None:
-    if isinstance(app.state.s3_client_exit_stack, contextlib.AsyncExitStack):
-        await app.state.s3_client_exit_stack.aclose()
+async def dispose_filebase_s3_client(app: fastapi.FastAPI) -> None:
+    if isinstance(
+        app.state.filebase_client_session.exit_stack, contextlib.AsyncExitStack
+    ):
+        await app.state.filebase_client_session.exit_stack.aclose()
+
+
+async def create_storj_s3_client(app: fastapi.FastAPI) -> None:
+    exit_stack = contextlib.AsyncExitStack()
+    app.state.storj_client_session = services.S3ClientSession(
+        bucket_name=settings.storj_s3_bucket,
+        exit_stack=exit_stack,
+        s3client=await exit_stack.enter_async_context(
+            session.AioSession().create_client(  # type: ignore
+                "s3",
+                endpoint_url=settings.storj_s3_api_endpoint_url,
+                aws_secret_access_key=settings.storj_s3_secret_access_key,
+                aws_access_key_id=settings.storj_s3_access_key_id,
+            )
+        ),
+    )
+
+
+async def dispose_storj_s3_client(app: fastapi.FastAPI) -> None:
+    if isinstance(app.state.storj_client_session.exit_stack, contextlib.AsyncExitStack):
+        await app.state.storj_client_session.exit_stack.aclose()
+
+
+async def create_nft_storage_client(app: fastapi.FastAPI) -> None:
+    app.state.nft_storage_client = services.NftStorageClient(
+        nft_storage_api=settings.nft_storage_api_endpoint_url,
+        api_key=settings.nft_storage_api_key,
+    )
 
 
 def create_start_app_handler(app: fastapi.FastAPI) -> typing.Callable[..., typing.Any]:
@@ -71,7 +108,10 @@ def create_start_app_handler(app: fastapi.FastAPI) -> typing.Callable[..., typin
         await create_imagekit_client(app)
         await create_image_processor(app)
         await create_gdrive_client(app)
-        await create_s3_client(app)
+        await create_s3_client_interface(app)
+        await create_filebase_s3_client(app)
+        await create_storj_s3_client(app)
+        await create_nft_storage_client(app)
 
     return start_app
 
@@ -80,6 +120,7 @@ def create_stop_app_handler(app: fastapi.FastAPI) -> typing.Callable[..., typing
     async def stop_app() -> None:
         await dispose_http_client_session(app)
         await dispose_imagekit_client(app)
-        await dispose_s3_client(app)
+        await dispose_filebase_s3_client(app)
+        await dispose_storj_s3_client(app)
 
     return stop_app
