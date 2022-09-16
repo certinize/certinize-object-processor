@@ -1,4 +1,4 @@
-# certinize-ecert-processor
+# certinize-object-processor
 
 ## Setup
 

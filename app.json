@@ -1,5 +1,5 @@
 {
-  "name": "certinize-ecert-processor",
+  "name": "certinize-object-processor",
   "description": "Certinize e-Certificate storage and processor",
   "env": {
     "ALLOWED_ORIGINS": {
