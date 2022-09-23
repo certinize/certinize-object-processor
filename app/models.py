@@ -1,3 +1,4 @@
+import base64
 import dataclasses
 import datetime
 import typing
@@ -32,6 +33,22 @@ class CertificateTemplateMeta(pydantic.BaseModel):
     font_url: pydantic.HttpUrl
     issuance_date: datetime.date
     recipients: list[Recipient]
+
+
+class TemplateUpload(pydantic.BaseModel):
+    filename: str
+    options: dict[str, typing.Any]
+    fileb: str
+
+    @pydantic.validator("fileb")
+    @classmethod
+    def fileb_must_be_valid_base64(cls, value: str):
+        try:
+            base64.b64decode(value)
+        except Exception:
+            raise ValueError("fileb must be a valid base64 encoded image")
+
+        return value
 
 
 @dataclasses.dataclass

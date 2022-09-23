@@ -171,7 +171,7 @@ class ImageKitClient:
 
     async def upload_file(
         self,
-        file: bytes | typing.BinaryIO,
+        file: str,
         file_name: str,
         options: dict[str, typing.Any],
     ) -> dict[str, typing.Any]:
@@ -181,7 +181,7 @@ class ImageKitClient:
             https://docs.imagekit.io/api-reference
 
         Args:
-            file (bytes | typing.BinaryIO): The file content or URL.
+            file (bytes): The file content or URL.
             file_name (str): The name with which the file has to be uploaded.
             options (dict[str, typing.Any]): The rest of the requst structure.
 
@@ -194,7 +194,8 @@ class ImageKitClient:
 
         for key, value in request_body.items():
             form_data.add_field(key, value)
-        form_data.add_field("file", file)
+
+        form_data.add_field("file", file, content_type="image/jpeg")
 
         response = await self.session.post(url=url, data=form_data)
         return await response.json()
@@ -453,7 +454,6 @@ class S3Client:
         presigned: dict[str, typing.Any],
         file: bytes,
     ):
-        print(f"\n{presigned}\n")
         return await http_client.post(
             presigned["url"], data=presigned["fields"] | {"file": file}
         )
