@@ -40,16 +40,17 @@ class ImageProcessor:  # pylint: disable=R0903
         certificate_meta: models.CertificateMeta,
         certificate_recipient: models.CertificateRecipient,
     ) -> bytes:
-        """Attach text on an e-Certificate template.
+        """Attach a bunch of texts on an e-Certificate template.
 
         Args:
-            draw (ImageDraw.ImageDraw): An instance of `PIL.ImageDraw.ImageDraw`.
-            image (Image.Image): An instance of `PIL.Image.Image`.
-            image_processor_params (models.ImageProcessorParams): An instance of
-                `app.models.ImageProcessorParams`
+            certificate_issuance_date (models.CertificateIssuanceDate): e-Certificate
+                issuance date.
+            certificate_meta (models.CertificateMeta): e-Certificate metadata. 
+            certificate_recipient (models.CertificateRecipient): e-Certificate recipient
+                metadata.
 
         Returns:
-            bytes: Text attachment result.
+            bytes: Generated e-Certificate in bytes.
         """
         image = Image.open(io.BytesIO(certificate_meta.template))
         draw = ImageDraw.Draw(image)

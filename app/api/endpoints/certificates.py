@@ -4,6 +4,7 @@ import uuid
 
 import aiohttp
 import fastapi
+import PIL
 from fastapi import responses
 
 from app import models, services
@@ -85,11 +86,17 @@ async def _generate_ecertificate(
         for name in certificate_template_meta.recipients
     ]
 
-    results = await image_processor.attach_text(
-        certificate_issuance_date=certificate_issuance_date,
-        certificate_meta=certificate_meta,
-        certificate_recipients=certificate_recipients,
-    )
+    try:
+        results = await image_processor.attach_text(
+            certificate_issuance_date=certificate_issuance_date,
+            certificate_meta=certificate_meta,
+            certificate_recipients=certificate_recipients,
+        )
+    except PIL.UnidentifiedImageError as e:
+        raise fastapi.HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from e
 
     ecerts_loc = await _upload_ecertificates(
         gdrive_client=gdrive_client, ecerts=[io.BytesIO(result) for result in results]
