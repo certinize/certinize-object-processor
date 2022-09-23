@@ -113,7 +113,7 @@ async def _generate_ecertificate(
     ]
 
 
-@router.post("/")
+@router.post("")
 async def generate_ecertificate(
     requests: fastapi.Request,
     certificate_template_meta: models.CertificateTemplateMeta,
