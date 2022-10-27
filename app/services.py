@@ -11,7 +11,6 @@ import json
 import typing
 
 import aiohttp
-import orjson
 import types_aiobotocore_s3
 from PIL import Image, ImageDraw, ImageFont
 from pydrive2 import drive, files, fs
@@ -45,7 +44,7 @@ class ImageProcessor:  # pylint: disable=R0903
         Args:
             certificate_issuance_date (models.CertificateIssuanceDate): e-Certificate
                 issuance date.
-            certificate_meta (models.CertificateMeta): e-Certificate metadata. 
+            certificate_meta (models.CertificateMeta): e-Certificate metadata.
             certificate_recipient (models.CertificateRecipient): e-Certificate recipient
                 metadata.
 
@@ -59,7 +58,7 @@ class ImageProcessor:  # pylint: disable=R0903
             text=certificate_recipient.recipient_name,
             fill=certificate_meta.font_color,
             font=ImageFont.truetype(
-                io.BytesIO(certificate_meta.font_style),
+                io.BytesIO(certificate_meta.name_font_style),
                 certificate_recipient.text_size,
             ),
             anchor="mm",
@@ -69,7 +68,7 @@ class ImageProcessor:  # pylint: disable=R0903
             text=certificate_issuance_date.issuance_date,
             fill=certificate_meta.font_color,
             font=ImageFont.truetype(
-                io.BytesIO(certificate_meta.font_style),
+                io.BytesIO(certificate_meta.date_font_style),
                 certificate_issuance_date.text_size,
             ),
             anchor="mm",
@@ -135,12 +134,7 @@ class ImageKitClient:
 
     def _create_client_session(self) -> None:
         """Initialize the client session."""
-        self.session = aiohttp.ClientSession(
-            headers=self._headers,
-            json_serialize=lambda json_: orjson.dumps(  # pylint: disable=E1101
-                json_
-            ).decode(),
-        )
+        self.session = aiohttp.ClientSession(headers=self._headers)
 
     async def create_folder(
         self, folder_name: str, parent_folder_path: str

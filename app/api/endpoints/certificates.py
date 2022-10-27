@@ -55,7 +55,12 @@ async def _generate_ecertificate(
     # These assertions are purely for pyright to be able to understand the code; the
     # validators should have already checked the values.
 
-    font_src = await http_client.get(certificate_template_meta.font_url)
+    name_font_src = await http_client.get(
+        certificate_template_meta.recipient_name_meta.font_url
+    )
+    date_font_src = await http_client.get(
+        certificate_template_meta.issuance_date_meta.font_url
+    )
     template_src = await http_client.get(certificate_template_meta.template_url)
 
     # Construct image processor options
@@ -69,9 +74,10 @@ async def _generate_ecertificate(
     )
 
     certificate_meta = models.CertificateMeta(
-        font_style=await font_src.read(),
         font_color="black",
         template=await template_src.read(),
+        name_font_style=await name_font_src.read(),
+        date_font_style=await date_font_src.read(),
     )
 
     certificate_recipients: list[models.CertificateRecipient] = [

@@ -12,6 +12,7 @@ class Recipient(pydantic.BaseModel):
 
 class CertificateTextMeta(pydantic.BaseModel):
     font_size: int
+    font_url: pydantic.HttpUrl
     position: dict[str, int]
 
     @pydantic.validator("position")
@@ -30,7 +31,6 @@ class CertificateTemplateMeta(pydantic.BaseModel):
     recipient_name_meta: CertificateTextMeta
     issuance_date_meta: CertificateTextMeta
     template_url: pydantic.HttpUrl
-    font_url: pydantic.HttpUrl
     issuance_date: datetime.date
     recipients: list[Recipient]
 
@@ -67,6 +67,7 @@ class CertificateIssuanceDate:
 
 @dataclasses.dataclass
 class CertificateMeta:
-    font_style: bytes
     font_color: str
     template: bytes
+    name_font_style: bytes
+    date_font_style: bytes
