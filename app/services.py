@@ -8,6 +8,7 @@ import contextlib
 import dataclasses
 import io
 import json
+import sys
 import typing
 
 import aiohttp
@@ -35,15 +36,12 @@ class ImageProcessor:  # pylint: disable=R0903
 
     async def _attach_text(
         self,
-        certificate_issuance_date: models.CertificateIssuanceDate,
         certificate_meta: models.CertificateMeta,
         certificate_recipient: models.CertificateRecipient,
     ) -> bytes:
         """Attach a bunch of texts on an e-Certificate template.
 
         Args:
-            certificate_issuance_date (models.CertificateIssuanceDate): e-Certificate
-                issuance date.
             certificate_meta (models.CertificateMeta): e-Certificate metadata.
             certificate_recipient (models.CertificateRecipient): e-Certificate recipient
                 metadata.
@@ -52,6 +50,13 @@ class ImageProcessor:  # pylint: disable=R0903
             bytes: Generated e-Certificate in bytes.
         """
         image = Image.open(io.BytesIO(certificate_meta.template))
+        image = image.convert("RGB")
+
+        if certificate_meta.template_height is not None:
+            image.thumbnail(
+                (sys.maxsize, certificate_meta.template_height), Image.LANCZOS
+            )
+
         draw = ImageDraw.Draw(image)
         draw.text(  # type: ignore
             xy=certificate_recipient.text_position,
@@ -63,23 +68,12 @@ class ImageProcessor:  # pylint: disable=R0903
             ),
             anchor="mm",
         )
-        draw.text(  # type: ignore
-            xy=certificate_issuance_date.text_position,
-            text=certificate_issuance_date.issuance_date,
-            fill=certificate_meta.font_color,
-            font=ImageFont.truetype(
-                io.BytesIO(certificate_meta.date_font_style),
-                certificate_issuance_date.text_size,
-            ),
-            anchor="mm",
-        )
         writer = io.BytesIO()
         image.save(writer, format="jpeg")
         return writer.getvalue()
 
     async def attach_text(
         self,
-        certificate_issuance_date: models.CertificateIssuanceDate,
         certificate_meta: models.CertificateMeta,
         certificate_recipients: list[models.CertificateRecipient],
     ):
@@ -95,7 +89,6 @@ class ImageProcessor:  # pylint: disable=R0903
         results = await asyncio.gather(
             *(
                 self._attach_text(
-                    certificate_issuance_date,
                     certificate_meta,
                     recipient_meta,
                 )
@@ -454,7 +447,7 @@ class S3Client:
         )
 
 
-class NftStorageClient:
+class NftStorageClient:  # pylint: disable=too-few-public-methods
     """nft.storage API client
 
     Docs: https://nft.storage/api-docs/

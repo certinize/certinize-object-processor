@@ -14,6 +14,7 @@ class CertificateTextMeta(pydantic.BaseModel):
     font_size: int
     font_url: pydantic.HttpUrl
     position: dict[str, int]
+    template_height: int | None = None
 
     @pydantic.validator("position")
     @classmethod
@@ -29,7 +30,6 @@ class CertificateTextMeta(pydantic.BaseModel):
 
 class CertificateTemplateMeta(pydantic.BaseModel):
     recipient_name_meta: CertificateTextMeta
-    issuance_date_meta: CertificateTextMeta
     template_url: pydantic.HttpUrl
     issuance_date: datetime.date
     recipients: list[Recipient]
@@ -45,8 +45,8 @@ class TemplateUpload(pydantic.BaseModel):
     def fileb_must_be_valid_base64(cls, value: str):
         try:
             base64.b64decode(value)
-        except Exception:
-            raise ValueError("fileb must be a valid base64 encoded image")
+        except Exception as exc:
+            raise ValueError("fileb must be a valid base64 encoded image") from exc
 
         return value
 
@@ -70,4 +70,4 @@ class CertificateMeta:
     font_color: str
     template: bytes
     name_font_style: bytes
-    date_font_style: bytes
+    template_height: int | None = None

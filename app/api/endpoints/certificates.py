@@ -58,26 +58,13 @@ async def _generate_ecertificate(
     name_font_src = await http_client.get(
         certificate_template_meta.recipient_name_meta.font_url
     )
-    date_font_src = await http_client.get(
-        certificate_template_meta.issuance_date_meta.font_url
-    )
     template_src = await http_client.get(certificate_template_meta.template_url)
-
-    # Construct image processor options
-    certificate_issuance_date = models.CertificateIssuanceDate(
-        issuance_date=str(certificate_template_meta.issuance_date),
-        text_position=(
-            certificate_template_meta.issuance_date_meta.position["x"],
-            certificate_template_meta.issuance_date_meta.position["y"],
-        ),
-        text_size=certificate_template_meta.issuance_date_meta.font_size,
-    )
 
     certificate_meta = models.CertificateMeta(
         font_color="black",
         template=await template_src.read(),
         name_font_style=await name_font_src.read(),
-        date_font_style=await date_font_src.read(),
+        template_height=certificate_template_meta.recipient_name_meta.template_height,
     )
 
     certificate_recipients: list[models.CertificateRecipient] = [
@@ -94,15 +81,14 @@ async def _generate_ecertificate(
 
     try:
         results = await image_processor.attach_text(
-            certificate_issuance_date=certificate_issuance_date,
             certificate_meta=certificate_meta,
             certificate_recipients=certificate_recipients,
         )
-    except PIL.UnidentifiedImageError as e:
+    except PIL.UnidentifiedImageError as img_err:
         raise fastapi.HTTPException(
             status_code=400,
-            detail=str(e),
-        ) from e
+            detail=str(img_err),
+        ) from img_err
 
     ecerts_loc = await _upload_ecertificates(
         gdrive_client=gdrive_client, ecerts=[io.BytesIO(result) for result in results]
@@ -113,7 +99,6 @@ async def _generate_ecertificate(
             "certificate_url": ecert[0],
             "file_id": ecert[1],
             "recipient_name": recipient.recipient_name,
-            "issuance_date": certificate_issuance_date.issuance_date,
         }
         for ecert, recipient in zip(ecerts_loc, certificate_recipients)
     ]
