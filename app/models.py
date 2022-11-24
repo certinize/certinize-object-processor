@@ -1,6 +1,5 @@
 import base64
 import dataclasses
-import datetime
 import typing
 
 import pydantic
@@ -31,7 +30,6 @@ class CertificateTextMeta(pydantic.BaseModel):
 class CertificateTemplateMeta(pydantic.BaseModel):
     recipient_name_meta: CertificateTextMeta
     template_url: pydantic.HttpUrl
-    issuance_date: datetime.date
     recipients: list[Recipient]
 
 
@@ -60,7 +58,6 @@ class CertificateRecipient:
 
 @dataclasses.dataclass
 class CertificateIssuanceDate:
-    issuance_date: str
     text_position: tuple[int, int]
     text_size: int
 
