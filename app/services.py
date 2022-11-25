@@ -274,6 +274,12 @@ class GoogleDriveClient:
                 # We have to assign the link here to get the shareable link on time.
                 link = file_["alternateLink"]
 
+        # Convert the link to download link.
+        # From: https://drive.google.com/file/d/10SyD3uzY07cHX0KK1dxxrF-l3Y6Tt1VA/view?usp=drivesdk
+        # To: https://drive.google.com/uc?export=download&id=10SyD3uzY07cHX0KK1dxxrF-l3Y6Tt1VA
+        link = link.replace("/file/d/", "/uc?export=download&id=")
+        link = link.replace("/view?usp=drivesdk", "")
+
         return link, file_id
 
     async def get_files(
