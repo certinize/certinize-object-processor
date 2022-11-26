@@ -57,12 +57,6 @@ class CertificateRecipient:
 
 
 @dataclasses.dataclass
-class CertificateIssuanceDate:
-    text_position: tuple[int, int]
-    text_size: int
-
-
-@dataclasses.dataclass
 class CertificateMeta:
     font_color: str
     template: bytes
